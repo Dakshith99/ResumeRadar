@@ -7,6 +7,7 @@ import time
 import json
 from collections import Counter
 from model.main import process_resume, process_multiple_resumes
+import stripe
 
 # Add the current directory to Python path to find the model module
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -188,6 +189,48 @@ def get_tech_trends():
     except Exception as e:
         print(f"Error in get_tech_trends: {str(e)}")
         return jsonify([]), 500
+
+@app.route('/technology')
+def technology():
+    return render_template('technology.html')
+
+@app.route('/subscription')
+def subscription():
+    return render_template('subscription.html')
+
+@app.route('/create-checkout-session', methods=['POST'])
+def create_checkout():
+    try:
+        data = request.get_json()
+        plan = data.get('plan')
+        
+        # Define your price IDs for each plan
+        price_ids = {
+            'basic': 'price_basic_id',  # Replace with your Stripe price ID
+            'pro': 'price_pro_id',      # Replace with your Stripe price ID
+        }
+        
+        if plan not in price_ids:
+            return jsonify({'error': 'Invalid plan selected'}), 400
+            
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price': price_ids[plan],
+                'quantity': 1,
+            }],
+            mode='subscription',
+            success_url=request.host_url + 'success?session_id={CHECKOUT_SESSION_ID}',
+            cancel_url=request.host_url + 'subscription',
+        )
+        
+        return jsonify({'id': checkout_session.id})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 403
+
+@app.route('/success')
+def success():
+    return render_template('success.html')
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001) 
